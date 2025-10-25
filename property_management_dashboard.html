@@ -1,0 +1,1786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Management Dual Portal</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2563EB; /* Blue-600 */
+            --primary-light: #60A5FA; /* Blue-400 */
+            --text-color: #1F2937; /* Gray-800 */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F3F4F6; /* Gray-100 */
+            color: var(--text-color);
+        }
+        /* Custom scrollbar for better aesthetics */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #D1D5DB; /* Gray-300 */
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background-color: #F9FAFB; /* Gray-50 */
+        }
+
+        /* Status Badges */
+        .status-Pending { background-color: #FEF3C7; color: #D97706; } /* Amber */
+        .status-InProgress { background-color: #DBEAFE; color: #2563EB; } /* Blue */
+        .status-Resolved { background-color: #D1FAE5; color: #059669; } /* Green */
+        .status-Closed { background-color: #FEE2E2; color: #DC2626; } /* Red */
+
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+        }
+        .tab-active {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            background-color: #EFF6FF; /* Blue-50 */
+        }
+        /* Container for Chart Canvas elements */
+        .chart-container {
+            position: relative;
+            height: 300px; /* Fixed height for consistent chart display */
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Main App Container -->
+    <div id="app" class="min-h-screen">
+        <!-- Header & Navigation -->
+        <header class="bg-white shadow-lg">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+                <div class="flex justify-between items-center pb-4">
+                    <h1 class="text-2xl font-bold text-gray-900">Property Management Portal</h1>
+                    <div class="text-sm font-medium text-gray-500">
+                        User ID: <span id="userIdDisplay" class="font-mono text-gray-700">Loading...</span>
+                    </div>
+                </div>
+                
+                <!-- Tabs for Switching Views -->
+                <nav class="flex space-x-4 border-b">
+                    <button id="adminTab" onclick="switchView('admin')" class="py-3 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition duration-150 tab-active">
+                        Admin Dashboard
+                    </button>
+                    <button id="analyticsTab" onclick="switchView('analytics')" class="py-3 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition duration-150">
+                        Analytics Dashboard
+                    </button>
+                    <button id="masterDataTab" onclick="switchView('master')" class="py-3 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition duration-150">
+                        Property Master
+                    </button>
+                    <button id="tenantMasterTab" onclick="switchView('tenant-master')" class="py-3 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition duration-150">
+                        Tenant/Owner Master
+                    </button>
+                    <button id="tenantTab" onclick="switchView('tenant')" class="py-3 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition duration-150">
+                        Owner/Tenant Portal
+                    </button>
+                    <button id="financialTab" onclick="switchView('financial')" class="py-3 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition duration-150">
+                        Financial Portal
+                    </button>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Loading Indicator -->
+        <div id="loading" class="text-center py-20 text-xl font-semibold text-gray-500">
+            <p>Initializing System and Connecting to Database...</p>
+        </div>
+
+        <!-- Content Area -->
+        <main id="content" class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 hidden">
+            
+            <!-- ADMIN VIEW: DASHBOARD AND TICKET LIST -->
+            <div id="adminView" class="view-content">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Management Dashboard</h2>
+                <!-- Stats Grid - This area will be updated by renderTickets -->
+                <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+                    <div class="bg-white overflow-hidden rounded-xl shadow-lg p-5 transition duration-300 hover:shadow-2xl">
+                        <p class="text-sm font-medium text-gray-500 truncate">Total Tickets</p>
+                        <p id="stat-total" class="mt-1 text-3xl font-semibold text-gray-900">0</p>
+                    </div>
+                    <div class="bg-white overflow-hidden rounded-xl shadow-lg p-5 transition duration-300 hover:shadow-2xl">
+                        <p class="text-sm font-medium text-gray-500 truncate">Open Tickets</p>
+                        <p id="stat-open" class="mt-1 text-3xl font-semibold text-blue-600">0</p>
+                    </div>
+                    <div class="bg-white overflow-hidden rounded-xl shadow-lg p-5 transition duration-300 hover:shadow-2xl">
+                        <p class="text-sm font-medium text-gray-500 truncate">In Progress</p>
+                        <p id="stat-progress" class="mt-1 text-3xl font-semibold text-yellow-600">0</p>
+                    </div>
+                    <div class="bg-white overflow-hidden rounded-xl shadow-lg p-5 transition duration-300 hover:shadow-2xl">
+                        <p class="text-sm font-medium text-gray-500 truncate">Resolved/Closed</p>
+                        <p id="stat-closed" class="mt-1 text-3xl font-semibold text-green-600">0</p>
+                    </div>
+                </div>
+
+                <!-- Ticket List Section -->
+                <div class="bg-white shadow-xl rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4 border-b pb-2">Active Service Tickets</h3>
+                    
+                    <!-- Search and Filter (NEW) -->
+                    <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 mb-4">
+                        <input type="text" id="ticketSearch" oninput="applyTicketFilters()" placeholder="Search by ID, Property, or Description..."
+                               class="flex-grow p-3 border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        
+                        <select id="statusFilter" onchange="applyTicketFilters()"
+                                class="p-3 border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-white">
+                            <option value="">Filter by Status (All)</option>
+                            <option value="Pending">Pending</option>
+                            <option value="InProgress">In Progress</option>
+                            <option value="Resolved">Resolved</option>
+                            <option value="Closed">Closed</option>
+                        </select>
+
+                        <select id="categoryFilter" onchange="applyTicketFilters()"
+                                class="p-3 border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-white">
+                            <option value="">Filter by Category (All)</option>
+                            <option value="Plumbing">Plumbing</option>
+                            <option value="Electrical">Electrical</option>
+                            <option value="Cleaning">Cleaning</option>
+                            <option value="HVAC">HVAC</option>
+                            <option value="Renovation">Renovation</option>
+                            <option value="Finance">Finance</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <!-- Ticket Table -->
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Raised By</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th class="px-6 py-3"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="ticketTableBody" class="bg-white divide-y divide-gray-200">
+                                <!-- Ticket rows will be injected here -->
+                                <tr>
+                                    <td colspan="7" class="text-center py-4 text-gray-500">No tickets found.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div id="noTicketsMessage" class="text-center py-8 text-gray-500 text-lg hidden">
+                        All clear! No active tickets need attention.
+                        <button onclick="seedInitialData()" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600 transition">
+                            Add Sample Data
+                        </button>
+                    </div>
+                </div>
+            </div> <!-- End Admin View -->
+            
+            <!-- ADMIN VIEW: ANALYTICS DASHBOARD -->
+            <div id="analyticsView" class="view-content hidden">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Service Analytics Dashboard</h2>
+                <p class="text-gray-600 mb-8">Real-time visualization of service ticket trends and distributions.</p>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Chart 1: Ticket Status Distribution -->
+                    <div class="bg-white shadow-xl rounded-xl p-6">
+                        <h3 class="text-xl font-semibold mb-4 border-b pb-2">Ticket Status Distribution</h3>
+                        <div class="chart-container">
+                            <canvas id="statusChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Chart 2: Tickets by Category -->
+                    <div class="bg-white shadow-xl rounded-xl p-6">
+                        <h3 class="text-xl font-semibold mb-4 border-b pb-2">Tickets by Category</h3>
+                        <div class="chart-container">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Chart 3: Tickets by Property -->
+                    <div class="lg:col-span-2 bg-white shadow-xl rounded-xl p-6">
+                        <h3 class="text-xl font-semibold mb-4 border-b pb-2">Ticket Volume by Property</h3>
+                        <div class="chart-container h-[400px]">
+                            <canvas id="propertyChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- End Analytics View -->
+
+            <!-- ADMIN VIEW: PROPERTY MASTER DATA MANAGEMENT -->
+            <div id="masterDataView" class="view-content hidden">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Property Master Management</h2>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Add New Property Form -->
+                    <div class="lg:col-span-1 bg-white shadow-xl rounded-xl p-6 h-fit">
+                        <h3 class="text-xl font-semibold mb-4 border-b pb-2">Add New Unit / Property</h3>
+                        <form id="propertyForm" class="space-y-4">
+                            <div>
+                                <label for="propertyName" class="block text-sm font-medium text-gray-700">Property/Unit Name <span class="text-red-500">*</span></label>
+                                <input type="text" id="propertyName" required placeholder="e.g., Bldg A, Unit 401"
+                                       class="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label for="propertyType" class="block text-sm font-medium text-gray-700">Property Type <span class="text-red-500">*</span></label>
+                                <select id="propertyType" required class="mt-1 block w-full p-3 border border-gray-300 bg-white rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    <option value="" disabled selected>Select type</option>
+                                    <option value="Residential">Residential Apartment</option>
+                                    <option value="Retail">Retail Shop/Unit</option>
+                                    <option value="Office">Office Space</option>
+                                    <option value="Common">Common Area</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="propertyStatus" class="block text-sm font-medium text-gray-700">Status <span class="text-red-500">*</span></label>
+                                <select id="propertyStatus" required class="mt-1 block w-full p-3 border border-gray-300 bg-white rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    <option value="Vacant">Vacant</option>
+                                    <option value="Occupied" selected>Occupied</option>
+                                    <option value="Maintenance">Under Maintenance</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="propertyAddress" class="block text-sm font-medium text-gray-700">Address / Location</label>
+                                <input type="text" id="propertyAddress" placeholder="123 Main Street"
+                                       class="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            <button type="submit" id="addPropertyButton"
+                                class="w-full inline-flex justify-center py-3 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150">
+                                Add Property
+                            </button>
+                            <p id="propertyMessage" class="mt-3 text-center text-sm font-medium text-green-600 hidden"></p>
+                        </form>
+                    </div>
+
+                    <!-- Property List Table -->
+                    <div class="lg:col-span-2 bg-white shadow-xl rounded-xl p-6">
+                        <h3 class="text-xl font-semibold mb-4 border-b pb-2">Active Property List</h3>
+                        
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                                        <th class="px-6 py-3"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="propertyTableBody" class="bg-white divide-y divide-gray-200">
+                                    <!-- Property rows will be injected here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- End Master Data View -->
+            
+            <!-- ADMIN VIEW: TENANT/OWNER MASTER DATA MANAGEMENT -->
+            <div id="tenantMasterView" class="view-content hidden">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Owner/Tenant Master Management</h2>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Add New Tenant/Owner Form -->
+                    <div class="lg:col-span-1 bg-white shadow-xl rounded-xl p-6 h-fit">
+                        <h3 class="text-xl font-semibold mb-4 border-b pb-2">Add New Owner/Tenant</h3>
+                        <form id="tenantMasterForm" class="space-y-4">
+                            <div>
+                                <label for="personName" class="block text-sm font-medium text-gray-700">Full Name <span class="text-red-500">*</span></label>
+                                <input type="text" id="personName" required placeholder="e.g., Jane Doe"
+                                       class="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label for="personType" class="block text-sm font-medium text-gray-700">Role <span class="text-red-500">*</span></label>
+                                <select id="personType" required class="mt-1 block w-full p-3 border border-gray-300 bg-white rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    <option value="" disabled selected>Select role</option>
+                                    <option value="Owner">Owner</option>
+                                    <option value="Tenant">Tenant/Renter</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="personProperty" class="block text-sm font-medium text-gray-700">Assigned Property <span class="text-red-500">*</span></label>
+                                <select id="personProperty" required class="mt-1 block w-full p-3 border border-gray-300 bg-white rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    <option value="" disabled selected>Loading properties...</option>
+                                    <!-- Dynamic list of properties will load here -->
+                                </select>
+                            </div>
+                            <div>
+                                <label for="personContact" class="block text-sm font-medium text-gray-700">Contact Email</label>
+                                <input type="email" id="personContact" placeholder="email@example.com"
+                                       class="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            <button type="submit" id="addPersonButton"
+                                class="w-full inline-flex justify-center py-3 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150">
+                                Add Person
+                            </button>
+                            <p id="personMessage" class="mt-3 text-center text-sm font-medium text-green-600 hidden"></p>
+                        </form>
+                    </div>
+
+                    <!-- Owner/Tenant List Table -->
+                    <div class="lg:col-span-2 bg-white shadow-xl rounded-xl p-6">
+                        <h3 class="text-xl font-semibold mb-4 border-b pb-2">Active Owner/Tenant List</h3>
+                        
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                                        <th class="px-6 py-3"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tenantMasterTableBody" class="bg-white divide-y divide-gray-200">
+                                    <!-- Person rows will be injected here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- End Tenant Master View -->
+
+
+            <!-- TENANT/OWNER VIEW: TICKET SUBMISSION AND TRACKING -->
+            <div id="tenantView" class="view-content hidden">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Owner/Tenant Service Portal</h2>
+
+                <div class="grid grid-cols-1 lg:col-span-3 gap-6">
+                    <!-- Left Column: Submission Form -->
+                    <div class="lg:col-span-2 bg-white shadow-xl rounded-xl p-6">
+                        <h3 class="text-xl font-semibold mb-4 border-b pb-2">Raise a New Request</h3>
+                        <form id="complaintForm" class="space-y-4">
+                            <div>
+                                <label for="tenantProperty" class="block text-sm font-medium text-gray-700">Select Property <span class="text-red-500">*</span></label>
+                                <select id="tenantProperty" required class="mt-1 block w-full p-3 border border-gray-300 bg-white rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    <option value="" disabled selected>Loading properties...</option>
+                                    <!-- Options will be dynamically loaded from master data -->
+                                </select>
+                            </div>
+
+                            <div>
+                                <label for="tenantCategory" class="block text-sm font-medium text-gray-700">Select Category <span class="text-red-500">*</span></label>
+                                <select id="tenantCategory" required class="mt-1 block w-full p-3 border border-gray-300 bg-white rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    <option value="" disabled selected>What type of issue is this?</option>
+                                    <option value="Plumbing">Plumbing / Water Leak</option>
+                                    <option value="Electrical">Electrical / Power</option>
+                                    <option value="Cleaning">Cleaning / Janitorial</option>
+                                    <option value="HVAC">HVAC / Air Conditioning</option>
+                                    <option value="Renovation">Renovation Request</option>
+                                    <option value="Finance">Financial Query</option>
+                                    <option value="Other">Other Maintenance</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label for="tenantDescription" class="block text-sm font-medium text-gray-700">Detailed Description <span class="text-red-500">*</span></label>
+                                <textarea id="tenantDescription" rows="4" required placeholder="Describe the issue clearly (e.g., 'The kitchen sink has a steady drip since yesterday afternoon.')"
+                                    class="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500"></textarea>
+                            </div>
+
+                            <button type="submit" id="submitComplaintButton"
+                                class="w-full inline-flex justify-center py-3 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150">
+                                Submit Complaint / Request
+                            </button>
+                            <p id="submissionMessage" class="mt-3 text-center text-sm font-medium text-green-600 hidden"></p>
+                        </form>
+                    </div>
+
+                    <!-- Right Column: Status and Instructions -->
+                    <div class="bg-white shadow-xl rounded-xl p-6 h-fit">
+                        <h3 class="text-lg font-semibold mb-3 border-b pb-2">Submission Guidance</h3>
+                        <ul class="text-sm text-gray-600 space-y-2 list-disc list-inside">
+                            <li>**Be Specific**: The more detail you provide, the faster management can assign the right team.</li>
+                            <li>**Urgency**: Describe the urgency in the description if it's critical (e.g., major leak).</li>
+                            <li>**Contact**: Requests are tied to your user ID for tracking.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- My Submitted Tickets Table -->
+                <div class="bg-white shadow-xl rounded-xl p-6 mt-8 lg:col-span-3">
+                    <h3 class="text-xl font-semibold mb-4 border-b pb-2 text-blue-600">My Submitted Requests</h3>
+                    
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Issue (Description)</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Submitted</th>
+                                    <th class="px-6 py-3"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tenantTicketTableBody" class="bg-white divide-y divide-gray-200">
+                                <!-- Tenant-specific tickets will load here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <p id="tenantNoTicketsMessage" class="text-center py-4 text-gray-500 hidden">You have not submitted any tickets yet. Use the form above to raise a request.</p>
+                </div>
+
+            </div> <!-- End Tenant View -->
+
+            <!-- FINANCIAL PORTAL VIEW (NEW) -->
+            <div id="financialView" class="view-content hidden">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Financial Portal & Statements</h2>
+                
+                <!-- Financial Stats -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white overflow-hidden rounded-xl shadow-lg p-5 border-l-4 border-red-500">
+                        <p class="text-sm font-medium text-gray-500 truncate">Total Dues</p>
+                        <p id="financial-dues" class="mt-1 text-3xl font-semibold text-red-600">PKR 0.00</p>
+                    </div>
+                    <div class="bg-white overflow-hidden rounded-xl shadow-lg p-5 border-l-4 border-blue-500">
+                        <p class="text-sm font-medium text-gray-500 truncate">Last Payment Amount</p>
+                        <p id="financial-last-payment" class="mt-1 text-3xl font-semibold text-blue-600">PKR 0.00</p>
+                    </div>
+                    <div class="bg-white overflow-hidden rounded-xl shadow-lg p-5 border-l-4 border-green-500">
+                        <p class="text-sm font-medium text-gray-500 truncate">Total Payments YTD</p>
+                        <p id="financial-ytd-payment" class="mt-1 text-3xl font-semibold text-green-600">PKR 0.00</p>
+                    </div>
+                </div>
+
+                <!-- Financial Documents/Receipts -->
+                <div class="bg-white shadow-xl rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4 border-b pb-2 text-indigo-600">Your Recent Transactions (Mock Data)</h3>
+                    
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due / Credit</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3">Receipt</th>
+                                </tr>
+                            </thead>
+                            <tbody id="financialTableBody" class="bg-white divide-y divide-gray-200">
+                                <!-- Financial data rows will be injected here -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">2024-10-01</td>
+                                    <td class="px-6 py-4 text-sm text-gray-700">Monthly Rent (Unit 401)</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-semibold">PKR 50,000.00</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                            Overdue
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">N/A</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">2024-09-05</td>
+                                    <td class="px-6 py-4 text-sm text-gray-700">Maintenance Charge</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-semibold">PKR -5,000.00</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                            Paid
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <button class="text-blue-600 hover:text-blue-900 font-semibold transition duration-150">
+                                            View PDF
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">2024-09-01</td>
+                                    <td class="px-6 py-4 text-sm text-gray-700">Monthly Rent (Unit 401)</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-semibold">PKR -50,000.00</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                            Paid
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <button class="text-blue-600 hover:text-blue-900 font-semibold transition duration-150">
+                                            View PDF
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <p class="text-sm text-gray-500 mt-4 text-center">Note: Financial data shown is mock data for demonstration purposes.</p>
+            </div> <!-- End Financial View -->
+
+
+        </main>
+    </div>
+
+    <!-- ADMIN TICKET MODAL: STATUS UPDATE AND CHAT -->
+    <div id="adminTicketModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl p-6"> <!-- Increased max-width for chat -->
+            <h3 class="text-xl font-bold mb-4 border-b pb-2">Ticket Details: <span id="adminModalTicketIdDisplay" class="font-mono font-semibold text-blue-600"></span></h3>
+            
+            <div class="grid grid-cols-3 gap-6">
+                <!-- Column 1: Status Update -->
+                <div class="col-span-1 border-r pr-4">
+                    <h4 class="text-lg font-semibold mb-3">Ticket Status & Details</h4>
+                    <p class="mb-2 text-gray-600 text-sm font-medium">Description:</p>
+                    <p id="adminModalTicketDescription" class="mb-4 text-sm text-gray-700 bg-gray-50 p-2 rounded-lg"></p>
+                    <p class="mb-4 text-sm font-medium text-gray-500">Raised By: <span id="adminModalRaisedBy" class="text-gray-700"></span></p>
+
+                    <label for="adminNewStatus" class="block text-sm font-medium text-gray-700 mb-2">Update Status</label>
+                    <select id="adminNewStatus" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                        <option value="Pending">Pending</option>
+                        <option value="InProgress">In Progress</option>
+                        <option value="Resolved">Resolved</option>
+                        <option value="Closed">Closed</option>
+                    </select>
+
+                    <div class="mt-4 flex justify-end space-x-3">
+                        <button onclick="closeModal('adminTicketModal')" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg font-medium hover:bg-gray-300 transition">
+                            Close
+                        </button>
+                        <button id="adminSaveStatusButton" onclick="updateTicketStatus()" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition">
+                            Save Status
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Column 2 & 3: Communication Panel -->
+                <div class="col-span-2 flex flex-col h-[400px]">
+                    <h4 class="text-lg font-semibold mb-3 border-b pb-2">Communication Panel</h4>
+                    
+                    <!-- Chat Display Area -->
+                    <div id="adminChatDisplay" class="flex-grow overflow-y-auto custom-scrollbar p-3 bg-gray-50 rounded-lg mb-3 space-y-3">
+                        <p class="text-center text-gray-500">Loading chat history...</p>
+                    </div>
+
+                    <!-- Chat Input Area -->
+                    <div class="flex space-x-2">
+                        <input type="text" id="adminChatInput" placeholder="Type a comment or update (Admin)..." 
+                               class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                        <button id="adminSendCommentButton" onclick="submitComment('adminChatInput', 'Admin')"
+                            class="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition disabled:bg-gray-400">
+                            Send
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- TENANT TICKET MODAL: DETAILS AND CHAT (No status update controls) -->
+    <div id="tenantTicketModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-xl p-6"> 
+            <h3 class="text-xl font-bold mb-4 border-b pb-2">My Request: <span id="tenantModalTicketIdDisplay" class="font-mono font-semibold text-blue-600"></span></h3>
+            
+            <div class="grid grid-cols-3 gap-6">
+                <!-- Column 1: Details -->
+                <div class="col-span-1 border-r pr-4">
+                    <h4 class="text-lg font-semibold mb-3">Request Details</h4>
+                    <p class="mb-2 text-gray-600 text-sm font-medium">Status: <span id="tenantModalTicketStatus" class="font-bold status-badge status-Pending"></span></p>
+                    <p class="mb-2 text-gray-600 text-sm font-medium">Property: <span id="tenantModalTicketProperty" class="text-gray-700"></span></p>
+                    <p class="mb-4 text-gray-600 text-sm font-medium">Category: <span id="tenantModalTicketCategory" class="text-gray-700"></span></p>
+                    
+                    <p class="mb-2 text-gray-600 text-sm font-medium">Description:</p>
+                    <p id="tenantModalTicketDescription" class="mb-4 text-sm text-gray-700 bg-gray-50 p-2 rounded-lg h-32 overflow-y-auto custom-scrollbar"></p>
+                    
+                    <div class="mt-4 flex justify-end">
+                        <button onclick="closeModal('tenantTicketModal')" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg font-medium hover:bg-gray-300 transition">
+                            Close
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Column 2 & 3: Communication Panel -->
+                <div class="col-span-2 flex flex-col h-[400px]">
+                    <h4 class="text-lg font-semibold mb-3 border-b pb-2">Message Management</h4>
+                    
+                    <!-- Chat Display Area -->
+                    <div id="tenantChatDisplay" class="flex-grow overflow-y-auto custom-scrollbar p-3 bg-gray-50 rounded-lg mb-3 space-y-3">
+                        <p class="text-center text-gray-500">Loading chat history...</p>
+                    </div>
+
+                    <!-- Chat Input Area -->
+                    <div class="flex space-x-2">
+                        <input type="text" id="tenantChatInput" placeholder="Ask management a question..." 
+                               class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                        <button id="tenantSendCommentButton" onclick="submitComment('tenantChatInput', 'Tenant')"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:bg-gray-400">
+                            Send
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, onSnapshot, updateDoc, query, addDoc, serverTimestamp, setLogLevel, orderBy, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Firebase variables
+        let app;
+        let db;
+        let auth;
+        let userId = 'default-user-id';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // State for the modal and chat
+        let currentTicketId = null;
+        let commentsUnsubscribe = null; // Listener management
+        
+        // Chart Instances
+        let statusChartInstance = null;
+        let categoryChartInstance = null;
+        let propertyChartInstance = null;
+        
+        // Data Store (Hold all tickets for filtering/searching)
+        let allTickets = []; 
+
+        // --- Utility Functions ---
+
+        /**
+         * Determines the display name based on the role and current user ID. (FIX: Added missing function)
+         * We need to look up the person's name from personList later, but for now, use a fallback.
+         */
+        function getSenderName(role) {
+            // Priority 1: Check if the user ID matches an entry in the personList
+            const person = personList.find(p => p.submitterId === userId); // Assuming personList gets linked by a 'submitterId' field (future enhancement)
+            if (person) {
+                return person.name;
+            }
+            
+            // Priority 2: Use the generic role name
+            if (role === 'Admin') {
+                return 'Admin (Management)';
+            }
+            if (role === 'Tenant') {
+                // If not found in person list, use a generic identifier
+                return `Tenant/Owner (${userId.substring(0, 8)}...)`; 
+            }
+            return 'System User';
+        }
+        
+        /**
+         * Formats Firestore Timestamp object into a readable string.
+         */
+        function formatTimestamp(timestamp) {
+            if (timestamp && timestamp.toDate) {
+                return timestamp.toDate().toLocaleDateString('en-US');
+            }
+            return 'N/A';
+        }
+
+
+        // --- Firestore Reference Getters ---
+
+        function getTicketCollectionRef() {
+            return collection(db, `artifacts/${appId}/public/data/tickets`);
+        }
+        
+        function getCommentCollectionRef(ticketId) {
+            return collection(db, `artifacts/${appId}/public/data/tickets/${ticketId}/comments`);
+        }
+        
+        function getPropertiesCollectionRef() {
+            return collection(db, `artifacts/${appId}/public/data/properties`);
+        }
+        
+        function getPersonsCollectionRef() {
+            return collection(db, `artifacts/${appId}/public/data/persons`);
+        }
+
+
+        // --- Core Application Functions ---
+
+        /**
+         * Initializes Firebase and authenticates the user.
+         */
+        async function initFirebase() {
+            if (!firebaseConfig) {
+                console.error("Firebase config is missing. Cannot initialize Firebase.");
+                document.getElementById('loading').innerHTML = '<p class="text-red-500">Error: Firebase configuration is missing.</p>';
+                return;
+            }
+
+            try {
+                // setLogLevel('Debug');
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Authenticate user
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        document.getElementById('userIdDisplay').textContent = userId;
+                        
+                        // CRITICAL FIX: Seed data is now awaited, ensuring initial data exists
+                        // BEFORE listeners and UI rendering are fully active.
+                        seedInitialData().then(() => {
+                            setupRealtimeListener();
+                            setupPropertiesListener(); // Will now pull seeded data
+                            setupPersonsListener();    
+                            document.getElementById('loading').classList.add('hidden');
+                            document.getElementById('content').classList.remove('hidden');
+                            switchView('admin');
+                        });
+                        
+                    } else {
+                        console.log("User signed out or failed to authenticate.");
+                    }
+                });
+            } catch (error) {
+                console.error("Error during Firebase initialization or authentication:", error);
+                document.getElementById('loading').innerHTML = `<p class="text-red-500">Error: Failed to connect to Firebase. ${error.message}</p>`;
+            }
+        }
+        
+        // Master Data Arrays
+        let propertyList = [];
+        let personList = [];
+
+        // --- Property Master Functions ---
+
+        /**
+         * Sets up a real-time listener for properties.
+         */
+        function setupPropertiesListener() {
+            const propertiesRef = getPropertiesCollectionRef();
+            const q = query(propertiesRef);
+
+            onSnapshot(q, (snapshot) => {
+                propertyList = []; // Clear and refill the global list
+                snapshot.forEach(doc => {
+                    propertyList.push({ id: doc.id, ...doc.data() });
+                });
+                renderProperties(propertyList);
+                populatePropertyDropdowns(propertyList);
+            }, (error) => {
+                console.error("Error listening to properties:", error);
+            });
+        }
+        
+        /**
+         * Renders properties to the Property Master table.
+         * @param {Array<Object>} properties - The list of property objects.
+         */
+        function renderProperties(properties) {
+            const tableBody = document.getElementById('propertyTableBody');
+            tableBody.innerHTML = ''; // Clear existing rows
+            
+            if (properties.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-gray-500">No properties defined. Add one above!</td></tr>`;
+                return;
+            }
+            
+            properties.forEach(property => {
+                const row = tableBody.insertRow();
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${property.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${property.type}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            ${property.status === 'Occupied' ? 'bg-green-100 text-green-800' : 
+                            (property.status === 'Vacant' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800')}">
+                            ${property.status}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">${property.address || 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button onclick="deleteProperty('${property.id}', '${property.name}')"
+                            class="text-red-600 hover:text-red-900 font-semibold transition duration-150">
+                            Delete
+                        </button>
+                    </td>
+                `;
+            });
+        }
+        
+        /**
+         * Populates property dropdowns in both Tenant View and Tenant Master View.
+         * @param {Array<Object>} properties - The list of property objects.
+         */
+        function populatePropertyDropdowns(properties) {
+            const tenantSelect = document.getElementById('tenantProperty');
+            const personSelect = document.getElementById('personProperty');
+
+            [tenantSelect, personSelect].forEach(select => {
+                select.innerHTML = '<option value="" disabled selected>Choose your property or unit</option>';
+                
+                if (properties.length === 0) {
+                    select.innerHTML = '<option value="" disabled selected>No properties available. Admin must add units first.</option>';
+                    select.disabled = true;
+                    return;
+                }
+                select.disabled = false;
+                
+                properties.forEach(property => {
+                    const option = document.createElement('option');
+                    option.value = property.name;
+                    option.textContent = `${property.name} (${property.type} - ${property.status})`;
+                    select.appendChild(option);
+                });
+            });
+        }
+
+        // Attach property form submission listener
+        document.getElementById('propertyForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const form = event.target;
+            
+            const name = form.propertyName.value.trim();
+            const type = form.propertyType.value;
+            const status = form.propertyStatus.value;
+            const address = form.propertyAddress.value.trim();
+            
+            if (!name || !type || !status) return;
+
+            const submitButton = document.getElementById('addPropertyButton');
+            const messageElement = document.getElementById('propertyMessage');
+            
+            submitButton.disabled = true;
+            submitButton.textContent = 'Adding...';
+            messageElement.classList.add('hidden');
+
+            const newProperty = {
+                name: name,
+                type: type,
+                status: status,
+                address: address,
+                createdAt: serverTimestamp()
+            };
+
+            try {
+                await addDoc(getPropertiesCollectionRef(), newProperty);
+                
+                form.reset();
+                messageElement.textContent = 'Property added successfully!';
+                messageElement.classList.remove('hidden');
+                messageElement.classList.remove('text-red-500');
+                messageElement.classList.add('text-green-600');
+                
+                setTimeout(() => messageElement.classList.add('hidden'), 5000);
+
+            } catch (error) {
+                console.error("Error adding property:", error);
+                messageElement.textContent = `Error: Failed to add property. ${error.message}`;
+                messageElement.classList.remove('hidden');
+                messageElement.classList.add('text-red-500');
+                messageElement.classList.remove('text-green-600');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Add Property';
+            }
+        });
+        
+        /**
+         * Deletes a property from Firestore (Admin View).
+         */
+        window.deleteProperty = async (id, name) => {
+            if (!confirm(`Are you sure you want to delete the property: ${name}? This action cannot be undone.`)) return;
+
+            try {
+                const propertyDocRef = doc(getPropertiesCollectionRef(), id);
+                await deleteDoc(propertyDocRef);
+                console.log(`Property ${name} deleted successfully.`);
+            } catch (error) {
+                console.error("Error deleting property:", error);
+                alert(`Failed to delete property. Check console for details.`);
+            }
+        }
+        
+        // --- Owner/Tenant Master Functions ---
+        
+        /**
+         * Sets up a real-time listener for persons (Owners/Tenants).
+         */
+        function setupPersonsListener() {
+            const personsRef = getPersonsCollectionRef();
+            const q = query(personsRef);
+
+            onSnapshot(q, (snapshot) => {
+                personList = [];
+                snapshot.forEach(doc => {
+                    personList.push({ id: doc.id, ...doc.data() });
+                });
+                renderPersons(personList);
+            }, (error) => {
+                console.error("Error listening to persons:", error);
+            });
+        }
+        
+        /**
+         * Renders the list of Owners/Tenants to the table.
+         * @param {Array<Object>} persons - The list of person objects.
+         */
+        function renderPersons(persons) {
+            const tableBody = document.getElementById('tenantMasterTableBody');
+            tableBody.innerHTML = ''; // Clear existing rows
+            
+            if (persons.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-gray-500">No owner or tenant records found. Add one above!</td></tr>`;
+                return;
+            }
+            
+            persons.forEach(person => {
+                const row = tableBody.insertRow();
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${person.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            ${person.type === 'Owner' ? 'bg-indigo-100 text-indigo-800' : 'bg-yellow-100 text-yellow-800'}">
+                            ${person.type}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${person.property}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">${person.contact || 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button onclick="deletePerson('${person.id}', '${person.name}')"
+                            class="text-red-600 hover:text-red-900 font-semibold transition duration-150">
+                            Delete
+                        </button>
+                    </td>
+                `;
+            });
+        }
+        
+        /**
+         * Handles the submission of a new owner/tenant record.
+         */
+        document.getElementById('tenantMasterForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const form = event.target;
+            
+            const name = form.personName.value.trim();
+            const type = form.personType.value;
+            const property = form.personProperty.value;
+            const contact = form.personContact.value.trim();
+            
+            if (!name || !type || !property) return;
+
+            const submitButton = document.getElementById('addPersonButton');
+            const messageElement = document.getElementById('personMessage');
+            
+            submitButton.disabled = true;
+            submitButton.textContent = 'Adding...';
+            messageElement.classList.add('hidden');
+
+            const newPerson = {
+                name: name,
+                type: type, // Owner or Tenant
+                property: property, // Linked property name
+                contact: contact,
+                createdAt: serverTimestamp()
+            };
+
+            try {
+                await addDoc(getPersonsCollectionRef(), newPerson);
+                
+                form.reset();
+                messageElement.textContent = 'Person record added successfully!';
+                messageElement.classList.remove('hidden');
+                messageElement.classList.remove('text-red-500');
+                messageElement.classList.add('text-green-600');
+                
+                setTimeout(() => messageElement.classList.add('hidden'), 5000);
+
+            } catch (error) {
+                console.error("Error adding person:", error);
+                messageElement.textContent = `Error: Failed to add person record. ${error.message}`;
+                messageElement.classList.remove('hidden');
+                messageElement.classList.add('text-red-500');
+                messageElement.classList.remove('text-green-600');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Add Person';
+            }
+        });
+        
+        /**
+         * Deletes an owner/tenant record from Firestore (Admin View).
+         */
+        window.deletePerson = async (id, name) => {
+            if (!confirm(`Are you sure you want to delete the record for: ${name}? This action cannot be undone.`)) return;
+
+            try {
+                const personDocRef = doc(getPersonsCollectionRef(), id);
+                await deleteDoc(personDocRef);
+                console.log(`Person record for ${name} deleted successfully.`);
+            } catch (error) {
+                console.error("Error deleting person:", error);
+                alert(`Failed to delete person record. Check console for details.`);
+            }
+        }
+
+
+        // --- Ticket Management Functions ---
+
+        /**
+         * Sets up a real-time listener for tickets.
+         */
+        function setupRealtimeListener() {
+            const ticketsRef = getTicketCollectionRef();
+            const q = query(ticketsRef); 
+
+            onSnapshot(q, (snapshot) => {
+                allTickets = []; // Update global data store
+                snapshot.forEach(doc => {
+                    allTickets.push({ id: doc.id, descriptionLower: (doc.data().description || '').toLowerCase(), ...doc.data() });
+                });
+                
+                // Trigger filtered render for the admin view
+                applyTicketFilters(); 
+                
+                // Update non-filtered views
+                renderTenantTickets(allTickets);  // Tenant Portal List
+                renderAnalyticsDashboard(allTickets); // Analytics Dashboard Charts
+
+            }, (error) => {
+                console.error("Error listening to tickets:", error);
+            });
+        }
+        
+        /**
+         * Applies the current search and filter criteria to the ticket list. (NEW)
+         */
+        window.applyTicketFilters = () => {
+            const searchTerm = document.getElementById('ticketSearch').value.toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value;
+            const categoryFilter = document.getElementById('categoryFilter').value;
+
+            let filteredTickets = allTickets.filter(ticket => {
+                // Status Filter
+                if (statusFilter && ticket.status !== statusFilter) {
+                    return false;
+                }
+                
+                // Category Filter
+                if (categoryFilter && ticket.category !== categoryFilter) {
+                    return false;
+                }
+
+                // Search Filter (ID, Property, or Description)
+                if (searchTerm) {
+                    return (
+                        ticket.id.toLowerCase().includes(searchTerm) ||
+                        ticket.property.toLowerCase().includes(searchTerm) ||
+                        ticket.descriptionLower.includes(searchTerm)
+                    );
+                }
+
+                return true;
+            });
+            
+            // Only show active tickets (non-closed) in the main list
+            const activeTickets = filteredTickets.filter(t => t.status !== 'Closed');
+            
+            renderTickets(activeTickets);
+            updateDashboardStats(allTickets); // Stats are based on ALL tickets, not filtered ones
+        }
+        
+        /**
+         * Updates the dashboard stat cards (total, open, in progress, closed) (EXTRACTED)
+         */
+        function updateDashboardStats(tickets) {
+            const stats = { total: 0, open: 0, inProgress: 0, resolved: 0, closed: 0 };
+            
+            tickets.forEach(ticket => {
+                stats.total++;
+                if (ticket.status === 'Pending') stats.open++;
+                if (ticket.status === 'InProgress') stats.inProgress++;
+                if (ticket.status === 'Resolved' || ticket.status === 'Closed') stats.closed++;
+            });
+            
+            document.getElementById('stat-total').textContent = stats.total;
+            document.getElementById('stat-open').textContent = stats.open;
+            document.getElementById('stat-progress').textContent = stats.inProgress;
+            document.getElementById('stat-closed').textContent = stats.closed;
+        }
+
+
+        /**
+         * Toggles between the different views.
+         */
+        window.switchView = (view) => {
+            document.querySelectorAll('.view-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('tab-active'));
+
+            if (view === 'admin') {
+                document.getElementById('adminView').classList.remove('hidden');
+                document.getElementById('adminTab').classList.add('tab-active');
+            } else if (view === 'analytics') {
+                document.getElementById('analyticsView').classList.remove('hidden');
+                document.getElementById('analyticsTab').classList.add('tab-active');
+            } else if (view === 'master') {
+                document.getElementById('masterDataView').classList.remove('hidden');
+                document.getElementById('masterDataTab').classList.add('tab-active');
+            } else if (view === 'tenant-master') {
+                document.getElementById('tenantMasterView').classList.remove('hidden');
+                document.getElementById('tenantMasterTab').classList.add('tab-active');
+            } else if (view === 'tenant') {
+                document.getElementById('tenantView').classList.remove('hidden');
+                document.getElementById('tenantTab').classList.add('tab-active');
+            } else if (view === 'financial') { // NEW
+                document.getElementById('financialView').classList.remove('hidden');
+                document.getElementById('financialTab').classList.add('tab-active');
+                // Since this view has mock data, we just update the simple stats
+                updateFinancialStats(); 
+            }
+        };
+        
+        /**
+         * Renders the tickets to the table (Admin View logic).
+         * @param {Array<Object>} filteredTickets - The list of tickets to render after filtering.
+         */
+        function renderTickets(filteredTickets) {
+            const tableBody = document.getElementById('ticketTableBody');
+            const noTicketsMessage = document.getElementById('noTicketsMessage');
+            tableBody.innerHTML = ''; // Clear existing rows
+
+            if (filteredTickets.length === 0) {
+                noTicketsMessage.classList.remove('hidden');
+                tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-gray-500">No tickets match your filter criteria.</td></tr>`;
+                // Adjust noTicketsMessage visibility slightly if data exists but filter yields nothing
+                if (allTickets.length > 0) {
+                     document.querySelector('#noTicketsMessage button').classList.add('hidden');
+                     document.getElementById('noTicketsMessage').innerHTML = 'No tickets match the current filter/search settings. Try resetting filters.';
+                } else {
+                     document.querySelector('#noTicketsMessage button').classList.remove('hidden');
+                }
+            } else {
+                noTicketsMessage.classList.add('hidden');
+            }
+
+            // Render rows
+            filteredTickets.sort((a, b) => (b.timestamp?.toDate() || new Date(0)) - (a.timestamp?.toDate() || new Date(0))).forEach(ticket => {
+                const row = tableBody.insertRow();
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${ticket.id.substring(0, 8)}...</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${ticket.property}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${ticket.category}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="status-badge status-${ticket.status}">
+                            ${ticket.status}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${ticket.raisedBy}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatTimestamp(ticket.timestamp)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button onclick="openAdminTicketModal('${ticket.id}', '${ticket.description.replace(/'/g, "\\'")}', '${ticket.status}', '${ticket.raisedBy.replace(/'/g, "\\'")}')"
+                            class="text-blue-600 hover:text-blue-900 font-semibold transition duration-150">
+                            View / Update
+                        </button>
+                    </td>
+                `;
+            });
+        }
+
+
+        /**
+         * Renders tickets relevant to the current user in the Tenant/Owner view.
+         */
+        function renderTenantTickets(tickets) {
+            const tableBody = document.getElementById('tenantTicketTableBody');
+            const noTicketsMessage = document.getElementById('tenantNoTicketsMessage');
+            tableBody.innerHTML = ''; // Clear existing rows
+
+            // Filter tickets submitted by the current user (userId)
+            const userTickets = tickets
+                .filter(t => t.submitterId === userId)
+                .sort((a, b) => (b.timestamp?.toDate() || new Date(0)) - (a.timestamp?.toDate() || new Date(0)));
+
+            if (userTickets.length === 0) {
+                noTicketsMessage.classList.remove('hidden');
+            } else {
+                noTicketsMessage.classList.add('hidden');
+            }
+
+            userTickets.forEach(ticket => {
+                const row = tableBody.insertRow();
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${ticket.id.substring(0, 8)}...</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${ticket.property}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title="${ticket.description}">${ticket.description}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="status-badge status-${ticket.status}">
+                            ${ticket.status}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatTimestamp(ticket.timestamp)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button onclick="openTenantTicketModal('${ticket.id}', '${ticket.property.replace(/'/g, "\\'")}', '${ticket.category.replace(/'/g, "\\'")}', '${ticket.description.replace(/'/g, "\\'")}', '${ticket.status}')"
+                            class="text-blue-600 hover:text-blue-900 font-semibold transition duration-150">
+                            View Chat
+                        </button>
+                    </td>
+                `;
+            });
+        }
+        
+        // --- Financial Functions (NEW) ---
+
+        function updateFinancialStats() {
+            // Mock data for the current logged-in user (simulating personalized data)
+            const mockDues = 50000.00;
+            const mockLastPayment = 50000.00;
+            const mockYTDPayments = 250000.00;
+
+            document.getElementById('financial-dues').textContent = `PKR ${mockDues.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            document.getElementById('financial-last-payment').textContent = `PKR ${mockLastPayment.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            document.getElementById('financial-ytd-payment').textContent = `PKR ${mockYTDPayments.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        }
+
+        // --- Analytics Functions ---
+
+        /**
+         * Calculates key metrics from the ticket data.
+         */
+        function calculateMetrics(tickets) {
+            const statusCounts = { Pending: 0, InProgress: 0, Resolved: 0, Closed: 0 };
+            const categoryCounts = {};
+            const propertyCounts = {};
+            
+            tickets.forEach(ticket => {
+                // Status Counts
+                if (statusCounts.hasOwnProperty(ticket.status)) {
+                    statusCounts[ticket.status]++;
+                }
+
+                // Category Counts
+                categoryCounts[ticket.category] = (categoryCounts[ticket.category] || 0) + 1;
+
+                // Property Counts
+                propertyCounts[ticket.property] = (propertyCounts[ticket.property] || 0) + 1;
+            });
+
+            return { statusCounts, categoryCounts, propertyCounts };
+        }
+
+        /**
+         * Main function to render the analytics dashboard.
+         */
+        function renderAnalyticsDashboard(tickets) {
+            const metrics = calculateMetrics(tickets);
+
+            drawStatusChart(metrics.statusCounts);
+            drawCategoryChart(metrics.categoryCounts);
+            drawPropertyChart(metrics.propertyCounts);
+        }
+        
+        /**
+         * Draws the Ticket Status Distribution Chart (Doughnut).
+         */
+        function drawStatusChart(counts) {
+            if (statusChartInstance) statusChartInstance.destroy();
+            const ctx = document.getElementById('statusChart').getContext('2d');
+            
+            const data = {
+                labels: ['Pending', 'In Progress', 'Resolved', 'Closed'],
+                datasets: [{
+                    data: [counts.Pending, counts.InProgress, counts.Resolved, counts.Closed],
+                    backgroundColor: ['#F59E0B', '#3B82F6', '#10B981', '#EF4444'],
+                    hoverOffset: 4
+                }]
+            };
+
+            statusChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        title: { display: false }
+                    }
+                }
+            });
+        }
+
+        /**
+         * Draws the Tickets by Category Chart (Bar).
+         */
+        function drawCategoryChart(counts) {
+            if (categoryChartInstance) categoryChartInstance.destroy();
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            
+            const labels = Object.keys(counts);
+            const data = Object.values(counts);
+
+            categoryChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total Tickets',
+                        data: data,
+                        backgroundColor: '#2563EB',
+                        borderColor: '#1D4ED8',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+        
+        /**
+         * Draws the Tickets by Property Chart (Horizontal Bar).
+         */
+        function drawPropertyChart(counts) {
+            if (propertyChartInstance) propertyChartInstance.destroy();
+            const ctx = document.getElementById('propertyChart').getContext('2d');
+            
+            const labels = Object.keys(counts);
+            const data = Object.values(counts);
+
+            propertyChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Ticket Volume',
+                        data: data,
+                        backgroundColor: '#10B981',
+                        borderColor: '#059669',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    indexAxis: 'y', // Makes it a horizontal bar chart
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+
+        // --- Chat and Modal Functions ---
+
+        /**
+         * Loads the real-time comments for the current ticket.
+         */
+        function loadTicketComments(ticketId, chatDisplayId) {
+            if (commentsUnsubscribe) {
+                commentsUnsubscribe(); // Unsubscribe previous listener if active
+            }
+
+            const commentsRef = getCommentCollectionRef(ticketId);
+            const q = query(commentsRef, orderBy('timestamp', 'asc'));
+
+            commentsUnsubscribe = onSnapshot(q, (snapshot) => {
+                const comments = [];
+                snapshot.forEach(doc => {
+                    comments.push({ id: doc.id, ...doc.data() });
+                });
+                renderComments(comments, chatDisplayId);
+            }, (error) => {
+                console.error("Error listening to comments:", error);
+                document.getElementById(chatDisplayId).innerHTML = '<p class="text-center text-red-500">Failed to load chat history.</p>';
+            });
+        }
+
+        /**
+         * Renders the comments into the chat display area.
+         */
+        function renderComments(comments, chatDisplayId) {
+            const chatDisplay = document.getElementById(chatDisplayId);
+            chatDisplay.innerHTML = ''; // Clear existing messages
+
+            if (comments.length === 0) {
+                chatDisplay.innerHTML = '<p class="text-center text-gray-500 italic">No previous communication on this ticket. Start the conversation!</p>';
+            }
+
+            comments.forEach(comment => {
+                const isMyMessage = comment.senderId === userId;
+                const isSystemMessage = comment.senderId === 'SYSTEM';
+                
+                const align = isMyMessage ? 'justify-end' : 'justify-start';
+                let bubbleColor = 'bg-gray-200 text-gray-800'; 
+                
+                if (isMyMessage) {
+                    bubbleColor = 'bg-blue-500 text-white'; 
+                } else if (isSystemMessage) {
+                    bubbleColor = 'bg-gray-100 text-gray-600 text-xs italic';
+                } else if (comment.senderName.startsWith('Admin')) {
+                    bubbleColor = 'bg-green-100 text-green-800';
+                }
+
+
+                const senderName = isSystemMessage ? comment.senderName : (isMyMessage ? 'You' : comment.senderName);
+                
+                const messageTime = comment.timestamp && comment.timestamp.toDate ? 
+                                    comment.timestamp.toDate().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 
+                                    'N/A';
+                                    
+                const nameDisplay = isSystemMessage ? '' : 
+                                    `<p class="text-xs font-semibold mb-0.5 ${isMyMessage ? 'text-right text-blue-800' : 'text-left text-gray-600'}">${senderName}</p>`;
+                
+                const timeDisplay = isSystemMessage ? '' : 
+                                    `<p class="text-xs mt-0.5 text-gray-500 ${isMyMessage ? 'text-right' : 'text-left'}">${messageTime}</p>`;
+
+
+                const messageHTML = `
+                    <div class="flex ${align}">
+                        <div class="max-w-xs sm:max-w-md ${isSystemMessage ? 'w-full text-center' : ''}">
+                            ${nameDisplay}
+                            <div class="px-4 py-2 rounded-xl shadow ${bubbleColor} break-words">
+                                ${comment.message}
+                            </div>
+                            ${timeDisplay}
+                        </div>
+                    </div>
+                `;
+                chatDisplay.insertAdjacentHTML('beforeend', messageHTML);
+            });
+
+            chatDisplay.scrollTop = chatDisplay.scrollHeight;
+        }
+
+        /**
+         * Submits a new comment to the current ticket's chat.
+         */
+        window.submitComment = async (inputId, role) => {
+            const chatInput = document.getElementById(inputId);
+            const sendButton = document.getElementById(role.toLowerCase() + 'SendCommentButton');
+            const message = chatInput.value.trim();
+
+            if (!message || !currentTicketId) return;
+
+            sendButton.disabled = true;
+            chatInput.disabled = true;
+
+            const newComment = {
+                message: message,
+                senderId: userId,
+                senderName: getSenderName(role), 
+                timestamp: serverTimestamp()
+            };
+
+            try {
+                await addDoc(getCommentCollectionRef(currentTicketId), newComment);
+                chatInput.value = ''; // Clear input on success
+            } catch (error) {
+                console.error("Error sending comment:", error);
+            } finally {
+                sendButton.disabled = false;
+                chatInput.disabled = false;
+                chatInput.focus();
+            }
+        }
+        
+        // Add key press listener to inputs for easy submission
+        document.getElementById('adminChatInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment('adminChatInput', 'Admin'); }
+        });
+        document.getElementById('tenantChatInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment('tenantChatInput', 'Tenant'); }
+        });
+        
+        /**
+         * Opens the modal for Admin use (Status Update + Chat).
+         */
+        window.openAdminTicketModal = (id, description, currentStatus, raisedBy) => {
+            currentTicketId = id;
+            
+            // Populate Admin Modal
+            document.getElementById('adminModalTicketIdDisplay').textContent = id.substring(0, 8) + '...';
+            document.getElementById('adminModalTicketDescription').textContent = description;
+            document.getElementById('adminNewStatus').value = currentStatus;
+            document.getElementById('adminModalRaisedBy').textContent = raisedBy;
+
+            // Chat setup
+            document.getElementById('adminChatDisplay').innerHTML = '<p class="text-center text-gray-500">Loading chat history...</p>';
+            document.getElementById('adminChatInput').value = '';
+            document.getElementById('adminSendCommentButton').disabled = false; 
+
+            // Load comments and set up listener for Admin view
+            loadTicketComments(id, 'adminChatDisplay');
+
+            const modal = document.getElementById('adminTicketModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+        
+        /**
+         * Opens the modal for Tenant use (Details + Chat).
+         */
+        window.openTenantTicketModal = (id, property, category, description, status) => {
+            currentTicketId = id;
+            
+            // Populate Tenant Modal
+            document.getElementById('tenantModalTicketIdDisplay').textContent = id.substring(0, 8) + '...';
+            document.getElementById('tenantModalTicketProperty').textContent = property;
+            document.getElementById('tenantModalTicketCategory').textContent = category;
+            document.getElementById('tenantModalTicketDescription').textContent = description;
+            
+            // Set status badge correctly
+            const statusElement = document.getElementById('tenantModalTicketStatus');
+            statusElement.textContent = status;
+            statusElement.className = `font-bold status-badge status-${status}`;
+
+            // Chat setup
+            document.getElementById('tenantChatDisplay').innerHTML = '<p class="text-center text-gray-500">Loading chat history...</p>';
+            document.getElementById('tenantChatInput').value = '';
+            document.getElementById('tenantSendCommentButton').disabled = false; 
+
+            // Load comments and set up listener for Tenant view
+            loadTicketComments(id, 'tenantChatDisplay');
+
+            const modal = document.getElementById('tenantTicketModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        /**
+         * Closes the active modal and cleans up listeners.
+         */
+        window.closeModal = (modalId) => {
+            // CRITICAL: Unsubscribe from the comments listener
+            if (commentsUnsubscribe) {
+                commentsUnsubscribe();
+                commentsUnsubscribe = null;
+            }
+
+            const modal = document.getElementById(modalId);
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            currentTicketId = null;
+        };
+
+        /**
+         * Updates the ticket status in Firestore. (Admin Use)
+         */
+        async function updateTicketStatus() {
+            if (!currentTicketId) return;
+
+            const newStatus = document.getElementById('adminNewStatus').value;
+            const ticketDocRef = doc(getTicketCollectionRef(), currentTicketId);
+
+            const saveButton = document.getElementById('adminSaveStatusButton');
+            saveButton.textContent = 'Saving...';
+            saveButton.disabled = true;
+
+            try {
+                await updateDoc(ticketDocRef, {
+                    status: newStatus,
+                    updatedAt: serverTimestamp()
+                });
+                
+                // Add a system comment about the status change
+                await addDoc(getCommentCollectionRef(currentTicketId), {
+                    message: `Ticket status changed to: **${newStatus}**`,
+                    senderId: 'SYSTEM',
+                    senderName: 'System Update',
+                    timestamp: serverTimestamp()
+                });
+                
+                closeModal('adminTicketModal');
+                console.log(`Ticket ${currentTicketId} updated to ${newStatus}`);
+            } catch (error) {
+                console.error("Error updating ticket status:", error);
+                alert('Failed to save changes. Check console for details.'); 
+            } finally {
+                saveButton.textContent = 'Save Status';
+                saveButton.disabled = false;
+            }
+        }
+        
+        // Attaches the form handler correctly after Firebase is initialized
+        document.getElementById('complaintForm').addEventListener('submit', handleComplaintSubmission);
+
+        /**
+         * Handles the submission of a new complaint from the Tenant/Owner form.
+         */
+        async function handleComplaintSubmission(event) {
+            event.preventDefault();
+            const form = event.target;
+            
+            const property = form.tenantProperty.value;
+            const category = form.tenantCategory.value;
+            const description = form.tenantDescription.value;
+            
+            const submitButton = document.getElementById('submitComplaintButton');
+            const messageElement = document.getElementById('submissionMessage');
+            
+            submitButton.disabled = true;
+            submitButton.textContent = 'Submitting...';
+            messageElement.classList.add('hidden');
+
+            const newTicket = {
+                property: property,
+                category: category,
+                description: description,
+                // Use getSenderName to set the raisedBy field dynamically based on user context
+                raisedBy: getSenderName('Tenant'), 
+                submitterId: userId, // CRITICAL: This is used for tenant filtering
+                status: "Pending", // All new tickets start as Pending
+                priority: "Medium", 
+                timestamp: serverTimestamp()
+            };
+
+            try {
+                if (!property) throw new Error("Please select a valid property.");
+
+                const ticketRef = await addDoc(getTicketCollectionRef(), newTicket);
+                
+                // Add an initial comment to the new ticket with the full description
+                await addDoc(getCommentCollectionRef(ticketRef.id), {
+                    message: `New ticket raised for ${property}. Initial request: "${description}"`,
+                    senderId: userId,
+                    senderName: getSenderName('Tenant'), // This now works!
+                    timestamp: serverTimestamp()
+                });
+                
+                form.reset();
+                messageElement.textContent = 'Success! Your request has been submitted. Check the table below for status updates.';
+                messageElement.classList.remove('hidden');
+                messageElement.classList.add('text-green-600');
+                
+                setTimeout(() => messageElement.classList.add('hidden'), 5000);
+
+            } catch (error) {
+                console.error("Error submitting ticket:", error);
+                messageElement.textContent = `Error: Failed to submit request. ${error.message}`;
+                messageElement.classList.remove('hidden');
+                messageElement.classList.add('text-red-500');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Submit Complaint / Request';
+            }
+        }
+        
+        /**
+         * Populates the database with sample data if it's empty.
+         */
+        window.seedInitialData = async () => {
+            // NOTE: Must use getDocs and check for size, as checking snapshot.empty is asynchronous.
+            const propertiesRef = getPropertiesCollectionRef();
+            const ticketsRef = getTicketCollectionRef();
+            const personsRef = getPersonsCollectionRef();
+            
+            // 1. Seed Properties first
+            const propertySnapshot = await getDocs(propertiesRef);
+            if (propertySnapshot.empty) {
+                console.log("Seeding properties...");
+                const sampleProperties = [
+                    { name: "Bldg A, Unit 401", type: "Residential", status: "Occupied", address: "123 Main St, Karachi" },
+                    { name: "Bldg B, Shop 10", type: "Retail", status: "Occupied", address: "45 Commercial Rd" },
+                    { name: "Bldg C, Apt 12B", type: "Residential", status: "Vacant", address: "789 Park Lane" },
+                    { name: "Bldg B, Office 301", type: "Office", status: "Occupied", address: "45 Commercial Rd" },
+                    { name: "Common Area - Lobby", type: "Common", status: "N/A", address: "Bldg A Lobby" }
+                ];
+                for (const prop of sampleProperties) { await addDoc(propertiesRef, prop); }
+            }
+            
+            // 2. Seed Persons
+            const personSnapshot = await getDocs(personsRef);
+            if (personSnapshot.empty) {
+                console.log("Seeding persons...");
+                const samplePersons = [
+                    { name: "Mr. Omar Khan", type: "Owner", property: "Bldg A, Unit 401", contact: "omar.khan@example.com", createdAt: serverTimestamp() },
+                    { name: "Ms. Zara Hussain", type: "Tenant", property: "Bldg B, Shop 10", contact: "zara.hussain@example.com", createdAt: serverTimestamp() },
+                    { name: "Global Offices Ltd", type: "Tenant", property: "Bldg B, Office 301", contact: "management@globaloffices.com", createdAt: serverTimestamp() }
+                ];
+                for (const person of samplePersons) { await addDoc(personsRef, person); }
+            }
+
+
+            // 3. Seed Tickets
+            const ticketSnapshot = await getDocs(ticketsRef);
+            if (ticketSnapshot.empty) {
+                console.log("Seeding tickets...");
+                const otherUserId = "random-tenant-id-12345"; 
+
+                const sampleTickets = [
+                    {
+                        property: "Bldg A, Unit 401", category: "Plumbing", description: "Leaky faucet in the kitchen. Urgent fix required.",
+                        raisedBy: "Current User", status: "Pending", priority: "High", timestamp: serverTimestamp(), submitterId: userId 
+                    },
+                    {
+                        property: "Bldg B, Shop 10", category: "Electrical", description: "Power outage in the retail unit, affecting lighting.",
+                        raisedBy: "Acme Retail (Tenant)", status: "InProgress", priority: "High", timestamp: serverTimestamp(), submitterId: otherUserId 
+                    },
+                    {
+                        property: "Bldg C, Apt 12B", category: "Cleaning", description: "Request for deep cleaning of common hallway area.",
+                        raisedBy: "Current User", status: "Resolved", priority: "Medium", timestamp: serverTimestamp(), submitterId: userId
+                    },
+                    {
+                        property: "Bldg A, Unit 203", category: "Finance", description: "Query regarding incorrect maintenance fee calculation.",
+                        raisedBy: "Finance Dept.", status: "Closed", priority: "Low", timestamp: serverTimestamp(), submitterId: otherUserId
+                    },
+                    {
+                        property: "Bldg B, Office 301", category: "Renovation", description: "Approval request for minor internal office wall rearrangement.",
+                        raisedBy: "Global Corp (Tenant)", status: "Pending", priority: "Medium", timestamp: serverTimestamp(), submitterId: otherUserId
+                    },
+                    {
+                        property: "Bldg A, Unit 401", category: "HVAC", description: "AC unit is blowing hot air.",
+                        raisedBy: "User 5", status: "InProgress", priority: "High", timestamp: serverTimestamp(), submitterId: 'user5'
+                    },
+                    {
+                        property: "Common Area - Lobby", category: "Cleaning", description: "Spill in the lobby that needs quick cleanup.",
+                        raisedBy: "User 6", status: "Pending", priority: "Medium", timestamp: serverTimestamp(), submitterId: 'user6'
+                    },
+                    {
+                        property: "Bldg B, Shop 10", category: "Plumbing", description: "Toilet blockage in back restroom.",
+                        raisedBy: "User 7", status: "Pending", priority: "High", timestamp: serverTimestamp(), submitterId: 'user7'
+                    },
+                    {
+                        property: "Bldg A, Unit 401", category: "Electrical", description: "Light flickering in the bedroom.",
+                        raisedBy: "Current User", status: "Resolved", priority: "Low", timestamp: serverTimestamp(), submitterId: userId
+                    }
+                ];
+
+                for (const ticket of sampleTickets) {
+                    await addDoc(ticketsRef, ticket);
+                }
+            }
+            console.log("Sample data initialization complete.");
+        };
+
+        // Initialize the application on window load
+        window.onload = initFirebase;
+    </script>
+</body>
+</html>
